@@ -6,11 +6,9 @@ using System.Windows.Forms;
 
 namespace Simple_Face_Recognition_App
 {
-    static class Program
+    static class Programa
     {
-        /// <summary>
-        /// The main entry point for the application.
-        /// </summary>
+        
         [STAThread]
         static void Main()
         {
