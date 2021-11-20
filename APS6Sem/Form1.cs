@@ -15,25 +15,26 @@ using System.IO;
 using System.Threading;
 using System.Diagnostics;
 
-namespace Simple_Face_Recognition_App
+namespace APS6Sem
 {
     public partial class Form1 : Form
     {
-        #region Variables
+        #region Variáveis do Programa
+
         int id = 0;
         private Capture capturarVideo = null;
         private Image<Bgr, Byte> frameAtual = null;
         Mat quadro = new Mat();
         private bool deteccaoDeRostosHabilitada = false;
-        CascadeClassifier classificadorFacial = new CascadeClassifier(@"C:\Users\danil\Desktop\Trabalhos\APS\Simple-Face-Recognition-App-CS\Simple Face Recognition App\haarcascade_frontalface_alt.xml");
+        CascadeClassifier classificadorFacial = new CascadeClassifier("haarcascade_frontalface_alt.xml");
         Image<Bgr, Byte> resultadoDeRosto = null;
         List<Image<Gray, Byte>> rostosTreinados = new List<Image<Gray, byte>>();
-        List<int> Pessoas = new List<int>();
+        List<int> pessoas = new List<int>();
 
-        bool EnableSaveImage = false;
+        bool SalvarImagem = false;
         private bool  imgTreinada = false;
-        EigenFaceRecognizer recognizer;
-        List<string> NomeDePessoas = new List<string>();
+        EigenFaceRecognizer reconhecedor;
+        List<string> nomeDePessoas = new List<string>();
 
         #endregion
 
@@ -42,40 +43,40 @@ namespace Simple_Face_Recognition_App
             InitializeComponent();
         }
 
-        private void btnCapture_Click(object sender, EventArgs e)
+        private void btnWebcam_Click(object sender, EventArgs e)
         {
             if (capturarVideo != null) capturarVideo.Dispose();
             capturarVideo = new Capture();
-            Application.Idle += ProcessFrame;
+            Application.Idle += ProcessarFrame;
         }
 
-        private void ProcessFrame(object sender, EventArgs e)
+        private void ProcessarFrame(object sender, EventArgs e)
         {
             if (capturarVideo != null && capturarVideo.Ptr != IntPtr.Zero)
             {
                 capturarVideo.Retrieve(quadro, 0);
-                frameAtual = quadro.ToImage<Bgr, Byte>().Resize(picCapture.Width, picCapture.Height, Inter.Cubic);
+                frameAtual = quadro.ToImage<Bgr, Byte>().Resize(pboxWebcam.Width, pboxWebcam.Height, Inter.Cubic);
 
                 if (deteccaoDeRostosHabilitada)
                 {
-                    Mat grayImage = new Mat();
-                    CvInvoke.CvtColor(frameAtual, grayImage, ColorConversion.Bgr2Gray);
+                    Mat imagemCinza = new Mat();
+                    CvInvoke.CvtColor(frameAtual, imagemCinza, ColorConversion.Bgr2Gray);
                     
-                    CvInvoke.EqualizeHist(grayImage, grayImage);
+                    CvInvoke.EqualizeHist(imagemCinza, imagemCinza);
 
-                    Rectangle[] faces = classificadorFacial.DetectMultiScale(grayImage, 1.1, 3, Size.Empty, Size.Empty);
+                    Rectangle[] rostos = classificadorFacial.DetectMultiScale(imagemCinza, 1.1, 3, Size.Empty, Size.Empty);
                     
-                    if (faces.Length > 0)
+                    if (rostos.Length > 0)
                     {
 
-                        foreach (var face in faces)
+                        foreach (var rosto in rostos)
                         {
-                            Image<Bgr, Byte> resultImage = frameAtual.Convert<Bgr, Byte>();
-                            resultImage.ROI = face;
-                            picDetected.SizeMode = PictureBoxSizeMode.StretchImage;
-                            picDetected.Image = resultImage.Bitmap;
+                            Image<Bgr, Byte> imagemResultante = frameAtual.Convert<Bgr, Byte>();
+                            imagemResultante.ROI = rosto;
+                            pboxRosto.SizeMode = PictureBoxSizeMode.StretchImage;
+                            pboxRosto.Image = imagemResultante.Bitmap;
 
-                            if (EnableSaveImage)
+                            if (SalvarImagem)
                             {
                                 string path = Directory.GetCurrentDirectory() + @"\TrainedImages";
                                 if (!Directory.Exists(path))
@@ -83,40 +84,40 @@ namespace Simple_Face_Recognition_App
                                 Task.Factory.StartNew(() => {
                                     for (int i = 0; i < 10; i++)
                                     {
-                                        resultImage.Resize(200, 200, Inter.Cubic).Save(path + @"\" + txtPersonName.Text +"_"+ DateTime.Now.ToString("dd-mm-yyyy-hh-mm-ss") + ".jpg");
+                                        imagemResultante.Resize(200, 200, Inter.Cubic).Save(path + @"\" + tboxNome.Text +"_"+ DateTime.Now.ToString("dd-mm-yyyy-hh-mm-ss") + ".jpg");
                                         Thread.Sleep(1000);
                                     }
                                 });
 
                             }
-                            EnableSaveImage = false;
+                            SalvarImagem = false;
 
-                            if (btnAddPerson.InvokeRequired)
+                            if (btnAdicionarRosto.InvokeRequired)
                             {
-                                btnAddPerson.Invoke(new ThreadStart(delegate {
-                                    btnAddPerson.Enabled = true;
+                                btnAdicionarRosto.Invoke(new ThreadStart(delegate {
+                                    btnAdicionarRosto.Enabled = true;
                                 }));
                             }
 
                             if (imgTreinada)
                             {
-                                Image<Gray, Byte> grayFaceResult = resultImage.Convert<Gray, Byte>().Resize(200,200,Inter.Cubic);
-                                CvInvoke.EqualizeHist(grayFaceResult,grayFaceResult);
-                                var result = recognizer.Predict(grayFaceResult);
-                                pictureBox1.Image = grayFaceResult.Bitmap;
-                                pictureBox2.Image = rostosTreinados[result.Label].Bitmap;
-                                Debug.WriteLine(result.Label+". "+result.Distance);
-                                if (result.Label != -1 && result.Distance < 2000)
+                                Image<Gray, Byte> resultadoCinza = imagemResultante.Convert<Gray, Byte>().Resize(200,200,Inter.Cubic);
+                                CvInvoke.EqualizeHist(resultadoCinza,resultadoCinza);
+                                var resultado = reconhecedor.Predict(resultadoCinza);
+                                pictureBox1.Image = resultadoCinza.Bitmap;
+                                pictureBox2.Image = rostosTreinados[resultado.Label].Bitmap;
+                                Debug.WriteLine(resultado.Label+". "+resultado.Distance);
+                                if (resultado.Label != -1 && resultado.Distance < 2000)
                                 {
-                                    CvInvoke.PutText(frameAtual, NomeDePessoas[result.Label], new Point(face.X - 2, face.Y - 2),
+                                    CvInvoke.PutText(frameAtual, nomeDePessoas[resultado.Label], new Point(rosto.X - 2, rosto.Y - 2),
                                         FontFace.HersheyComplex, 1.0, new Bgr(Color.Orange).MCvScalar);
-                                    CvInvoke.Rectangle(frameAtual, face, new Bgr(Color.Green).MCvScalar, 2);
+                                    CvInvoke.Rectangle(frameAtual, rosto, new Bgr(Color.Green).MCvScalar, 2);
                                 }
                                 else
                                 {
-                                    CvInvoke.PutText(frameAtual, "Unknown", new Point(face.X - 2, face.Y - 2),
+                                    CvInvoke.PutText(frameAtual, "Unknown", new Point(rosto.X - 2, rosto.Y - 2),
                                         FontFace.HersheyComplex, 1.0, new Bgr(Color.Orange).MCvScalar);
-                                    CvInvoke.Rectangle(frameAtual, face, new Bgr(Color.Red).MCvScalar, 2);
+                                    CvInvoke.Rectangle(frameAtual, rosto, new Bgr(Color.Red).MCvScalar, 2);
 
                                 }
                             }
@@ -124,35 +125,35 @@ namespace Simple_Face_Recognition_App
                     }
                 }
 
-                picCapture.Image = frameAtual.Bitmap;
+                pboxWebcam.Image = frameAtual.Bitmap;
             }
 
             if (frameAtual != null)
                 frameAtual.Dispose();
         }
 
-        private void btnDetectFaces_Click(object sender, EventArgs e)
+        private void btnDetectarRostos_Click(object sender, EventArgs e)
         {
             deteccaoDeRostosHabilitada = true;
         }
 
-        private void btnAddPerson_Click(object sender, EventArgs e)
+        private void btnAddRosto_Click(object sender, EventArgs e)
         {
-            btnAddPerson.Enabled = false;
-            EnableSaveImage = true;
+            btnAdicionarRosto.Enabled = false;
+            SalvarImagem = true;
         }
 
-        private void btnTrain_Click(object sender, EventArgs e)
+        private void btnTreinar_Click(object sender, EventArgs e)
         {
-            TrainImagesFromDir();
+            TreinarImagens();
         }
-        private bool TrainImagesFromDir()
+        private bool TreinarImagens()
         {
-            int ImagesCount = 0;
-            double Threshold = 2000;
+            int contadorImagens = 0;
+            double limiar = 2000;
             rostosTreinados.Clear();
-            Pessoas.Clear();
-            NomeDePessoas.Clear();
+            pessoas.Clear();
+            nomeDePessoas.Clear();
             try
             {
                 string path = Directory.GetCurrentDirectory() + @"\TrainedImages";
@@ -163,18 +164,18 @@ namespace Simple_Face_Recognition_App
                     Image<Gray, byte> trainedImage = new Image<Gray, byte>(file).Resize(200,200,Inter.Cubic);
                     CvInvoke.EqualizeHist(trainedImage,trainedImage);
                     rostosTreinados.Add(trainedImage);
-                    Pessoas.Add(ImagesCount);
+                    pessoas.Add(contadorImagens);
                     string name = file.Split('\\').Last().Split('_')[0];
-                    NomeDePessoas.Add(name);
-                    ImagesCount++;
-                    Debug.WriteLine(ImagesCount + ". " +name);
+                    nomeDePessoas.Add(name);
+                    contadorImagens++;
+                    Debug.WriteLine(contadorImagens + ". " +name);
 
                 }
 
                 if (rostosTreinados.Count() > 0)
                 {
-                    recognizer = new EigenFaceRecognizer(ImagesCount, Threshold);
-                    recognizer.Train(rostosTreinados.ToArray(), Pessoas.ToArray());
+                    reconhecedor = new EigenFaceRecognizer(contadorImagens, limiar);
+                    reconhecedor.Train(rostosTreinados.ToArray(), pessoas.ToArray());
 
                     imgTreinada = true;
                     return true;

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace Simple_Face_Recognition_App
+namespace APS6Sem
 {
     static class Programa
     {
